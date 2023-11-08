@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-preview-alpine AS build-env
+FROM mcr.microsoft.com/dotnet/sdk:7.0.403-alpine3.18 AS build-env
 WORKDIR /App
 
 ARG TARGETARCH
