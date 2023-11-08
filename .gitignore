@@ -7,6 +7,7 @@ Lagrange.Core/Utility/Crypto/Provider/Dandelion/*.cs
 
 # vscode files
 .vscode/
+.vs/
 
 # rider files
 .idea/
