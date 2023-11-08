@@ -14,7 +14,7 @@ An Implementation of NTQQ Protocol, with Pure C#, Derived from Konata.Core
 ## Using with Docker
 
 ```bash
-docker pull docker.io/eric1008818/lagrange.onebot
+docker pull docker.io/eric1008818/lagrange.onebot:edge
 ```
 
 ### Configure appsettings.json in Docker
