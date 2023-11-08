@@ -1,16 +1,23 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build-env
-WORKDIR /App
+FROM mcr.microsoft.com/dotnet/sdk:7.0-bullseye-slim-amd64 AS build
 
-# Copy everything
-COPY . ./
-# Restore as distinct layers
-RUN dotnet restore
-# Build and publish a release
-RUN dotnet publish -c Release -o out
+ARG TARGETARCH
+ARG TARGETOS
 
-# Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:7.0
-WORKDIR /App
-COPY --from=build-env /App/out .
-COPY appsettings.onebot.json /App/out/appsettings.json
-ENTRYPOINT ["dotnet", "Lagrange.OneBot"]
+RUN arch=$TARGETARCH \
+    && if [ "$arch" = "amd64" ]; then arch="x64"; fi \
+    && echo $TARGETOS-$arch > /tmp/rid
+
+WORKDIR /source
+
+COPY *.csproj .
+    
+RUN dotnet restore -r $(cat /tmp/rid)
+
+COPY . .
+RUN dotnet publish -c Release -o /app -r $(cat /tmp/rid) --self-contained false --no-restore
+
+
+FROM mcr.microsoft.com/dotnet/runtime:7.0
+WORKDIR /app
+COPY --from=build /app .
+ENTRYPOINT ["dotnet", "Lagrange.OneBot.dll"]
