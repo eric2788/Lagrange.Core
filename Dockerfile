@@ -9,11 +9,9 @@ RUN arch=$TARGETARCH \
 
 WORKDIR /source
 
-COPY *.csproj .
+COPY . .
     
 RUN dotnet restore -r $(cat /tmp/rid)
-
-COPY . .
 RUN dotnet publish -c Release -o /app -r $(cat /tmp/rid) --self-contained false --no-restore
 
 
