@@ -4,11 +4,8 @@ WORKDIR /App
 ARG TARGETARCH
 ARG TARGETOS
 
-# Copy everything
 COPY . ./
-# Restore as distinct layers
 RUN dotnet restore -a $TARGETARCH
-# Build and publish a release
 RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
         -a $TARGETARCH \
         -c Release \
@@ -18,8 +15,9 @@ RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
         -p:PublishSingleFile=true \
         -p:IncludeContentInSingleFile=true
 
-# Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:7.0-alpine
+		
+FROM mcr.microsoft.com/dotnet/core/runtime-deps:7.0-alpine
+
 WORKDIR /app
 COPY --from=build-env /App/out .
 COPY appsettings.onebot.json ./appsettings.json
