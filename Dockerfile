@@ -16,7 +16,7 @@ RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
         -p:IncludeContentInSingleFile=true
 
 		
-FROM mcr.microsoft.com/dotnet/core/runtime-deps:7.0.13-alpine3.18
+FROM mcr.microsoft.com/dotnet/runtime:7.0.13-alpine3.18
 
 WORKDIR /app
 COPY --from=build-env /App/out .
