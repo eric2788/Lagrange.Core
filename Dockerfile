@@ -1,28 +1,22 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0-bullseye-slim-amd64 AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0.403 AS build-env
+WORKDIR /App
 
-ARG TARGETARCH
-ARG TARGETOS
-
-RUN arch=$TARGETARCH \
-    && if [ "$arch" = "arm64" ]; then arch="arm64"; fi \
-    && echo $TARGETOS-$arch > /tmp/rid
-
-WORKDIR /source
-COPY . .
-    
-RUN dotnet restore -r $(cat /tmp/rid)
+# Copy everything
+COPY . ./
+# Restore as distinct layers
+RUN dotnet restore
+# Build and publish a release
 RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
         -c Release \
-        -o /app \
-        -r $(cat /tmp/rid) \
-        --no-restore \
+        -o out \
+		--no-restore \
         --no-self-contained \
         -p:PublishSingleFile=true \
         -p:IncludeContentInSingleFile=true
 
-
+# Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:7.0-alpine
 WORKDIR /app
-COPY --from=build /app .
+COPY --from=build-env /App/out .
 COPY appsettings.onebot.json ./appsettings.json
 ENTRYPOINT ["./Lagrange.OneBot"]
