@@ -12,7 +12,7 @@ WORKDIR /source
 COPY . .
     
 RUN dotnet restore -r $(cat /tmp/rid)
-RUN dotnet publish -c Release -o /app -r $(cat /tmp/rid) --self-contained false --no-restore
+RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj -c Release -o /app -r $(cat /tmp/rid) --self-contained false --no-restore
 
 
 FROM mcr.microsoft.com/dotnet/runtime:7.0
