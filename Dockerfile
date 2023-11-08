@@ -19,8 +19,7 @@ RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
         --no-restore \
         --no-self-contained \
         -p:PublishSingleFile=true \
-        -p:IncludeContentInSingleFile=true \
-		/p:PublishTrimmed=true
+        -p:IncludeContentInSingleFile=true
 
 
 FROM mcr.microsoft.com/dotnet/aspnet:7.0-alpine
