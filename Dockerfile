@@ -1,12 +1,16 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS build-env
 WORKDIR /App
 
+ARG TARGETARCH
+ARG TARGETOS
+
 # Copy everything
 COPY . ./
 # Restore as distinct layers
-RUN dotnet restore
+RUN dotnet restore -a $TARGETARCH
 # Build and publish a release
 RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
+        -a $TARGETARCH \
         -c Release \
         -o out \
 		--no-restore \
