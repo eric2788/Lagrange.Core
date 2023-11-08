@@ -4,11 +4,10 @@ ARG TARGETARCH
 ARG TARGETOS
 
 RUN arch=$TARGETARCH \
-    && if [ "$arch" = "amd64" ]; then arch="x64"; fi \
+    && if [ "$arch" = "arm64" ]; then arch="arm64"; fi \
     && echo $TARGETOS-$arch > /tmp/rid
 
 WORKDIR /source
-
 COPY . .
     
 RUN dotnet restore -r $(cat /tmp/rid)
@@ -17,10 +16,9 @@ RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
         -o /app \
         -r $(cat /tmp/rid) \
         --no-restore \
-        --self-contained \
+        --no-self-contained \
         -p:PublishSingleFile=true \
-        -p:IncludeContentInSingleFile=true \
-		/p:PublishTrimmed=true
+        -p:IncludeContentInSingleFile=true
 
 
 FROM mcr.microsoft.com/dotnet/aspnet:7.0-alpine
