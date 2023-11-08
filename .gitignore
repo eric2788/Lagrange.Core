@@ -2,6 +2,7 @@
 bin/
 obj/
 /packages/
+out/
 
 Lagrange.Core/Utility/Crypto/Provider/Dandelion/*.cs
 
