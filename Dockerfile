@@ -12,10 +12,19 @@ WORKDIR /source
 COPY . .
     
 RUN dotnet restore -r $(cat /tmp/rid)
-RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj -c Release -o /app -r $(cat /tmp/rid) --self-contained false --no-restore
+RUN dotnet publish Lagrange.OneBot/Lagrange.OneBot.csproj \
+        -c Release \
+        -o /app \
+        -r $(cat /tmp/rid) \
+        --no-restore \
+        --no-self-contained \
+        -p:PublishSingleFile=true \
+        -p:IncludeContentInSingleFile=true \
+		/p:PublishTrimmed=true
 
 
-FROM mcr.microsoft.com/dotnet/runtime:7.0
+FROM mcr.microsoft.com/dotnet/aspnet:7.0-alpine
 WORKDIR /app
 COPY --from=build /app .
-ENTRYPOINT ["dotnet", "Lagrange.OneBot.dll"]
+COPY appsettings.onebot.json ./appsettings.json
+ENTRYPOINT ["./Lagrange.OneBot"]
