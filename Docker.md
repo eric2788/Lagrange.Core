@@ -12,40 +12,53 @@ An Implementation of NTQQ Protocol, with Pure C#, Derived from Konata.Core
 [![License](https://img.shields.io/static/v1?label=LICENSE&message=GPL-3.0&color=lightrey)](#)
 [![Telegram](https://img.shields.io/endpoint?url=https%3A%2F%2Ftelegram-badge-4mbpu8e0fit4.runkit.sh%2F%3Furl%3Dhttps%3A%2F%2Ft.me%2F%2B6HNTeJO0JqtlNmRl)](https://t.me/+6HNTeJO0JqtlNmRl)
 
-**&gt; English &lt;** | [简体中文](Docker_zh.md)
+# Using with 
 
-</div>
-
-## Getting Started
+you can now use both `ghcr.io` and `docker.io` to pull the image
 
 ```bash
-# 8081 port for ForwardWebSocket and Http-Post
-# /path-to-data is used to store the files needed for the runtime
-# UID Env and GID Env are used to set file permissions
-docker run -td -p 8081:8081 -v /path-to-data:/app/data -e UID=$UID -e GID=$(id -g) ghcr.io/konatadev/lagrange.onebot:edge
+# ghcr.io
+docker pull ghcr.io/eric1008818/lagrange.onebot:edge
+# docker.io
+docker pull docker.io/eric1008818/lagrange.onebot:edge
 ```
 
-> [!IMPORTANT]
->
-> 1. During the first run, you may be prompted with Please Edit the appsettings.json to set configs and press any key to continue. Please choose one of the following solutions to proceed:
->
->    1. 1. Modify `/path-to-data/appsettings.json`
->       2. Restart the container using `docker restart`
->
->    2. 1. Ensure that the `-t` option is used when executing `docker run`
->       2. Modify `/path-to-data/appsettings.json`
->       3. Enter the container using `docker attach`
->       4. Press any key
->       5. Exit the container using `Ctrl + P` `Ctrl + Q`
->
-> 2. If the host needs to access the Implementation (e.g., `Http`, `ForwardWebSocket`), please configure the Host of Implementation as `*`
-> 3. If the implementation needs to access the host network (e.g., `HttpPost`, `ReverseWebSocket`), please configure the `Host` of implementation to be `host.docker.internal`.
+**Tips:**
 
-## Migration from older versions
+>Before creating the container, it is essential to mount the data folder`/app/data` to avoid the need for reauthentication every time you start the container. Additionally, it is advisable to also mount configuration file `/app/appsettings.json`.
 
-Move `appsettings.json`, `device.json`, `keystore.json`, `lagrange-*.db` to the same folder where you want to put them.  
-For example `/path-to-data`
+> If you encounter network issues, you can try using `--network=host`.
 
-Delete the `ConfigPath` configuration entry in `/path-to-data/appsettings.json`
+```bash
+# 8081 port for ForwardWebSocket
+docker run -d -p 8081:8081 eric1008818/lagrange.onebot:edge
+```
 
-Start the container according to [Getting Started](#getting-started)
+## Persistence Storage
+
+```bash
+docker volume create lagrange_data
+docker run -d -v lagrange_data:/app/data eric1008818/lagrange.onebot:edge
+```
+
+## Configure appsettings.json in Docker
+
+### Using Mount
+
+use bind mount to mount your `appsettings.json` to `/app/appsettings.json`		
+```bash
+docker run -d -v /etc/appsettings.json:/app/appsettings.json eric1008818/lagrange.onebot:edge
+```
+
+### Using Environment Variables
+
+use [Enviroment Variables](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-7.0#naming-of-environment-variables) to set your appsettings.json
+```bash
+# disable reverse websocket
+docker run -d -e Implementations__1__Enable=false eric1008818/lagrange.onebot:edge
+```
+
+```bash
+# input username and password
+docker run -d -e Account__Uin=123456 -e Account__Password=1234 eric1008818/lagrange.onebot:edge
+```

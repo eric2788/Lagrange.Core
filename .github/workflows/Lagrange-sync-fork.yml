@@ -1,0 +1,21 @@
+name: Lagrange Sync Fork
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # on button click
+env:
+  TZ: Asia/Hong_Kong
+
+jobs:
+  sync:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: tgymnich/fork-sync@v1.8
+        with:
+          owner: LagrangeDev
+          base: master
+          head: master
+          ignore_fail: true

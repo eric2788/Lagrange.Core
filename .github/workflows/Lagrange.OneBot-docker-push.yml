@@ -2,56 +2,53 @@ name: Lagrange.OneBot Docker Push
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - "Lagrange.Core/**"
-      - "Lagrange.OneBot/**"
-      - "Lagrange.Core.sln"
-      - "LICENSE"
-  pull_request:
-    branches:
-      - master
-    paths:
-      - "Lagrange.Core/**"
-      - "Lagrange.OneBot/**"
-      - "Lagrange.Core.sln"
-      - "LICENSE"
+      tags:
+        - '*'
+      branches:
+        - 'master'
+      paths:
+        - "Lagrange.Core/**"
+        - "Lagrange.OneBot/**"
+        - "Lagrange.Core.sln"
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
+  build_push:
+     runs-on: ubuntu-latest
+     permissions:
+        contents: read
+        packages: write
+     steps:
       - uses: actions/checkout@v4
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to Github Registry
         uses: docker/login-action@v3
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GIT_TOKEN }}
-
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
+            docker.io/${{ secrets.DOCKER_USERNAME }}/lagrange.onebot
             ghcr.io/${{ github.repository_owner }}/lagrange.onebot
           tags: |
             type=edge
             type=sha,event=branch
             type=ref,event=tag
-
       - name: Build and push
+        id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -59,4 +56,4 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64, linux/arm64, linux/arm
+          platforms: linux/arm64, linux/amd64, linux/arm

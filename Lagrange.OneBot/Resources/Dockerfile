@@ -7,20 +7,17 @@ COPY . /root/build
 
 RUN dotnet publish -p:DebugType="none" -a $TARGETARCH -f "net8.0" -o "/root/out" "Lagrange.OneBot"
 
-# ===
+WORKDIR /root/build
+RUN dotnet publish Lagrange.OneBot \
+        -c Release \
+        -a $TARGETARCH \
+        -o out \
+        -p:PublishSingleFile=true \
+        --framework net8.0 \
+        -o /root/out
 
 FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine3.18
-
-WORKDIR /app/data
-
-COPY --from=build-env /root/out /app/bin
-COPY Lagrange.OneBot/Resources/docker-entrypoint.sh /app/bin/docker-entrypoint.sh
-
-ENV UID=100
-ENV GID=100
-
-RUN apk --no-cache add shadow su-exec \
- && adduser -D user \
- && chmod +x /app/bin/docker-entrypoint.sh
-
-ENTRYPOINT ["/app/bin/docker-entrypoint.sh"]
+WORKDIR /app
+COPY --from=build-env /App/out .
+COPY Lagrange.OneBot/Resources/appsettings.docker.json ./appsettings.json
+ENTRYPOINT ["./Lagrange.OneBot"]
