@@ -4,18 +4,24 @@ on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch: # on button click
+
 env:
   TZ: Asia/Hong_Kong
 
 jobs:
   sync:
-
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [ master, upstream ]
     steps:
       - uses: tgymnich/fork-sync@v1.8
         with:
-          owner: LagrangeDev
-          base: master
+          owner: eric2788
+          base: ${{ matrix.branch }}
           head: master
+          merge_method: rebase
+          auto_approve: true
           ignore_fail: true
+          token: ${{ secrets.GITHUB_TOKEN }}
