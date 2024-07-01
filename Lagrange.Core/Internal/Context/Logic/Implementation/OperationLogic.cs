@@ -142,6 +142,20 @@ internal class OperationLogic : LogicBase
         return events.Count != 0 && ((GroupFSMoveEvent)events[0]).ResultCode == 0;
     }
     
+    public async Task<bool> GroupFSDelete(uint groupUin, string fileId)
+    {
+        var groupFSDeleteEvent = GroupFSDeleteEvent.Create(groupUin, fileId);
+        var events = await Collection.Business.SendEvent(groupFSDeleteEvent); 
+        return events.Count != 0 && ((GroupFSDeleteEvent)events[0]).ResultCode == 0;
+    }
+    
+    public async Task<bool> GroupFSCreateFolder(uint groupUin, string name)
+    {
+        var groupFSCreateFolderEvent = GroupFSCreateFolderEvent.Create(groupUin, name);
+        var events = await Collection.Business.SendEvent(groupFSCreateFolderEvent); 
+        return events.Count != 0 && ((GroupFSCreateFolderEvent)events[0]).ResultCode == 0;
+    }
+    
     public Task<bool> GroupFSUpload(uint groupUin, FileEntity fileEntity, string targetDirectory)
     {
         try
@@ -262,7 +276,7 @@ internal class OperationLogic : LogicBase
         return results.Count != 0 && results[0].ResultCode == 0;
     }
 
-    public async Task<bool> RequestFriend(uint targetUin, string message, string question)
+    public async Task<bool> RequestFriend(uint targetUin, string question, string message)
     {
         var requestFriendSearchEvent = RequestFriendSearchEvent.Create(targetUin);
         var searchEvents = await Collection.Business.SendEvent(requestFriendSearchEvent);
@@ -412,6 +426,13 @@ internal class OperationLogic : LogicBase
     {
         var setReactionEvent = GroupSetReactionEvent.Create(groupUin, sequence, code);
         var results = await Collection.Business.SendEvent(setReactionEvent);
+        return results.Count != 0 && results[0].ResultCode == 0;
+    }
+    
+    public async Task<bool> SetNeedToConfirmSwitch(bool enableNoNeed)
+    {
+        var setNeedToConfirmSwitchEvent = SetNeedToConfirmSwitchEvent.Create(enableNoNeed);
+        var results = await Collection.Business.SendEvent(setNeedToConfirmSwitchEvent);
         return results.Count != 0 && results[0].ResultCode == 0;
     }
 }

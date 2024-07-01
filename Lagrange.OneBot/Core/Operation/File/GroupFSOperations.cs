@@ -87,3 +87,33 @@ public class GetGroupRootFilesOperation : IOperation
         throw new Exception();
     }
 }
+
+[Operation("delete_group_file")]
+public class DeleteGroupFileOperation : IOperation
+{
+    public async Task<OneBotResult> HandleOperation(BotContext context, JsonNode? payload)
+    {
+        if (payload.Deserialize<OneBotDeleteFile>(SerializerOptions.DefaultOptions) is { } file)
+        {
+            await context.GroupFSDelete(file.GroupId, file.FileId);
+            return new OneBotResult(null, 0, "ok");
+        }
+
+        throw new Exception();
+    }
+}
+
+[Operation("create_group_file_folder")]
+public class CreateGroupFileFolderOperation : IOperation
+{
+    public async Task<OneBotResult> HandleOperation(BotContext context, JsonNode? payload)
+    {
+        if (payload.Deserialize<OneBotCreateFolder>(SerializerOptions.DefaultOptions) is { } folder)
+        {
+            await context.GroupFSCreateFolder(folder.GroupId, folder.Name);
+            return new OneBotResult(null, 0, "ok");
+        }
+
+        throw new Exception();
+    }
+}
