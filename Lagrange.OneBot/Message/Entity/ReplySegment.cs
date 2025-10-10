@@ -10,40 +10,50 @@ public partial class ReplySegment(uint messageId)
 {
     public ReplySegment() : this(0) { }
 
-    [JsonPropertyName("id")] [CQProperty] public string MessageId { get; set; } = messageId.ToString();
+    [JsonPropertyName("id")][CQProperty] public string MessageId { get; set; } = messageId.ToString();
 }
 
 [SegmentSubscriber(typeof(ForwardEntity), "reply")]
 public partial class ReplySegment : SegmentBase
 {
     internal MessageChain? TargetChain { get; set; }
-    
+
     internal uint Sequence { get; private set; }
-    
+
     public override void Build(MessageBuilder builder, SegmentBase segment)
     {
-        if (segment is ReplySegment reply && Database is not null)
+        if (segment is ReplySegment reply && Realm is not null)
         {
-            reply.TargetChain ??= (MessageChain)Database.GetCollection<MessageRecord>().FindById(int.Parse(reply.MessageId));
+            var chain = Realm.Do<MessageChain>(realm => realm.All<MessageRecord>()
+                .First(record => record.Id == int.Parse(reply.MessageId)));
+
+            reply.TargetChain ??= chain;
 
             var build = MessagePacker.Build(reply.TargetChain, "");
             var virtualElem = build.Body?.RichText?.Elems;
             if (virtualElem != null) reply.TargetChain.Elements.AddRange(virtualElem);
-            
+
             builder.Forward(reply.TargetChain);
         }
     }
 
     public override SegmentBase FromEntity(MessageChain chain, IMessageEntity entity)
     {
-        if (entity is not ForwardEntity forward || Database is null) throw new ArgumentException("The entity is not a forward entity.");
-        
-        var collection = Database.GetCollection<MessageRecord>();
-        
-        int hash = MessageRecord.CalcMessageHash(forward.MessageId, forward.Sequence);
-        var query = collection.FindById(hash);
-        return query == null
-            ? new ReplySegment { MessageId = 0.ToString() }
-            : new ReplySegment { MessageId = query.MessageHash.ToString() };
+        if (entity is not ForwardEntity forward || Realm is null) throw new ArgumentException("The entity is not a forward entity.");
+
+        int? id;
+        if (chain.IsGroup)
+        {
+            id = MessageRecord.CalcMessageHash(forward.MessageId, forward.Sequence);
+        }
+        else
+        {
+            id = Realm.Do(realm => realm.All<MessageRecord>()
+                .FirstOrDefault(record => record.FromUinLong == chain.FriendUin
+                    && record.ClientSequenceLong == forward.ClientSequence)?
+                .Id);
+        }
+
+        return new ReplySegment { MessageId = (id ?? 0).ToString() };
     }
 }

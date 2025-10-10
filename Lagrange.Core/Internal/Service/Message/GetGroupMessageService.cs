@@ -3,7 +3,6 @@ using Lagrange.Core.Internal.Event;
 using Lagrange.Core.Internal.Event.Message;
 using Lagrange.Core.Internal.Packets.Message.Action;
 using Lagrange.Core.Message;
-using Lagrange.Core.Utility.Binary;
 using Lagrange.Core.Utility.Extension;
 using ProtoBuf;
 
@@ -13,8 +12,8 @@ namespace Lagrange.Core.Internal.Service.Message;
 [Service("trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg")]
 internal class GetGroupMessageService : BaseService<GetGroupMessageEvent>
 {
-    protected override bool Build(GetGroupMessageEvent input, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device,
-        out BinaryPacket output, out List<BinaryPacket>? extraPackets)
+    protected override bool Build(GetGroupMessageEvent input, BotKeystore keystore, BotAppInfo appInfo,
+        BotDeviceInfo device, out Span<byte> output, out List<Memory<byte>>? extraPackets)
     {
         var packet = new SsoGetGroupMsg
         {
@@ -26,7 +25,7 @@ internal class GetGroupMessageService : BaseService<GetGroupMessageEvent>
             },
             Direction = true
         };
-        
+
         output = packet.Serialize();
         extraPackets = null;
         return true;
@@ -36,9 +35,9 @@ internal class GetGroupMessageService : BaseService<GetGroupMessageEvent>
         out GetGroupMessageEvent output, out List<ProtocolEvent>? extraEvents)
     {
         var payload = Serializer.Deserialize<SsoGetGroupMsgResponse>(input);
-        var chains = payload.Body.Messages.Select(x => MessagePacker.Parse(x)).ToList();
-        
-        output = GetGroupMessageEvent.Result(0, chains);
+        var chains = payload.Body.Messages?.Select(x => MessagePacker.Parse(x)).ToList() ?? new();
+
+        output = GetGroupMessageEvent.Result((int)payload.Body.Retcode, chains);
         extraEvents = null;
         return true;
     }

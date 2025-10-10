@@ -4,7 +4,6 @@ using Lagrange.Core.Internal.Event.Message;
 using Lagrange.Core.Internal.Packets.Service.Oidb;
 using Lagrange.Core.Internal.Packets.Service.Oidb.Request;
 using Lagrange.Core.Internal.Packets.Service.Oidb.Response;
-using Lagrange.Core.Utility.Binary;
 using Lagrange.Core.Utility.Extension;
 using ProtoBuf;
 
@@ -14,8 +13,8 @@ namespace Lagrange.Core.Internal.Service.Message;
 [Service("OidbSvcTrpcTcp.0x6d6_0")]
 internal class GroupFSUploadService : BaseService<GroupFSUploadEvent>
 {
-    protected override bool Build(GroupFSUploadEvent input, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device,
-        out BinaryPacket output, out List<BinaryPacket>? extraPackets)
+    protected override bool Build(GroupFSUploadEvent input, BotKeystore keystore, BotAppInfo appInfo,
+        BotDeviceInfo device, out Span<byte> output, out List<Memory<byte>>? extraPackets)
     {
         if (input.Entity.FileStream is null) throw new Exception();
 
@@ -27,7 +26,7 @@ internal class GroupFSUploadService : BaseService<GroupFSUploadEvent>
                 AppId = 7,
                 BusId = 102,
                 Entrance = 6,
-                TargetDirectory = "/",
+                TargetDirectory = input.TargetDirectory,
                 FileName = input.Entity.FileName,
                 LocalDirectory = $"/{input.Entity.FileName}",
                 FileSize = input.Entity.FileSize,
@@ -43,13 +42,13 @@ internal class GroupFSUploadService : BaseService<GroupFSUploadEvent>
         return true;
     }
 
-    protected override bool Parse(Span<byte> input, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device, 
+    protected override bool Parse(Span<byte> input, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device,
         out GroupFSUploadEvent output, out List<ProtocolEvent>? extraEvents)
     {
         var payload = Serializer.Deserialize<OidbSvcTrpcTcpBase<OidbSvcTrpcTcp0x6D6Response>>(input);
         var upload = payload.Body.Upload;
-        
-        output = GroupFSUploadEvent.Result(upload.RetCode, upload.BoolFileExist, upload.FileId, upload.FileKey, upload.CheckKey, upload.UploadIp, upload.UploadPort);
+
+        output = GroupFSUploadEvent.Result(upload.RetCode, upload.RetMsg, upload.BoolFileExist, upload.FileId, upload.FileKey, upload.CheckKey, upload.UploadIp, upload.UploadPort);
         extraEvents = null;
         return true;
     }

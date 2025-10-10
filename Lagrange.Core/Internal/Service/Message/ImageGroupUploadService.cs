@@ -5,7 +5,6 @@ using Lagrange.Core.Internal.Packets.Message.Element.Implementation;
 using Lagrange.Core.Internal.Packets.Service.Oidb;
 using Lagrange.Core.Internal.Packets.Service.Oidb.Common;
 using Lagrange.Core.Utility;
-using Lagrange.Core.Utility.Binary;
 using Lagrange.Core.Utility.Extension;
 using ProtoBuf;
 using FileInfo = Lagrange.Core.Internal.Packets.Service.Oidb.Common.FileInfo;
@@ -17,17 +16,17 @@ namespace Lagrange.Core.Internal.Service.Message;
 [Service("OidbSvcTrpcTcp.0x11c4_100")]
 internal class ImageGroupUploadService : BaseService<ImageGroupUploadEvent>
 {
-    protected override bool Build(ImageGroupUploadEvent input, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device,
-        out BinaryPacket output, out List<BinaryPacket>? extraPackets)
+    protected override bool Build(ImageGroupUploadEvent input, BotKeystore keystore, BotAppInfo appInfo,
+        BotDeviceInfo device, out Span<byte> output, out List<Memory<byte>>? extraPackets)
     {
         if (input.Entity.ImageStream is null) throw new Exception();
         
         string md5 = input.Entity.ImageStream.Value.Md5(true);
         string sha1 = input.Entity.ImageStream.Value.Sha1(true);
         
-        var buffer = new byte[1024]; // parse image header
-        int _ = input.Entity.ImageStream.Value.Read(buffer.AsSpan());
-        var type = ImageResolver.Resolve(buffer, out var size);
+        // var buffer = new byte[1024]; // parse image header
+        // int _ = input.Entity.ImageStream.Value.Read(buffer.AsSpan());
+        var type = ImageResolver.Resolve(input.Entity.ImageStream.Value, out var size);
         string imageExt = type switch
         {
             ImageFormat.Jpeg => ".jpg",
@@ -35,7 +34,7 @@ internal class ImageGroupUploadService : BaseService<ImageGroupUploadEvent>
             ImageFormat.Gif => ".gif",
             ImageFormat.Webp => ".webp",
             ImageFormat.Bmp => ".bmp",
-            ImageFormat.Tiff => ".tiff",
+            // ImageFormat.Tiff => ".tiff",
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
         input.Entity.ImageStream.Value.Position = 0;
@@ -93,7 +92,15 @@ internal class ImageGroupUploadService : BaseService<ImageGroupUploadEvent>
                 {
                     Pic = new PicExtBizInfo
                     {
-                        BytesPbReserveTroop = "0800180020004a00500062009201009a0100aa010c080012001800200028003a00".UnHex()
+                        BizType = (uint)input.Entity.SubType,
+                        // This is very confusing
+                        // so we only implement the default summary for sub type 1
+                        // and Tencent implements the others based on the default values.
+                        TextSummary = input.Entity.Summary ?? (input.Entity.SubType == 1 ? "[\u52a8\u753b\u8868\u60c5]" : null!),
+                        C2c = new PicExtBizInfoC2c
+                        {
+                            SubType = (uint)input.Entity.SubType
+                        }
                     },
                     Video = new VideoExtBizInfo { BytesPbReserve = Array.Empty<byte>() },
                     Ptt = new PttExtBizInfo
@@ -120,7 +127,7 @@ internal class ImageGroupUploadService : BaseService<ImageGroupUploadEvent>
         var upload = packet.Body.Upload;
         var compat = Serializer.Deserialize<CustomFace>(upload.CompatQMsg.AsSpan());
         
-        output = ImageGroupUploadEvent.Result((int)packet.ErrorCode, upload.UKey, upload.MsgInfo, upload.IPv4s, compat);
+        output = ImageGroupUploadEvent.Result((int)packet.ErrorCode, upload.MsgInfo, upload.UKey, upload.IPv4s, upload.SubFileInfos, compat);
         extraEvents = null;
         return true;
     }

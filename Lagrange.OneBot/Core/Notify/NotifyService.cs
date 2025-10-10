@@ -6,11 +6,13 @@ using Lagrange.Core.Message.Entity;
 using Lagrange.OneBot.Core.Entity.Notify;
 using Lagrange.OneBot.Core.Network;
 using Lagrange.OneBot.Database;
+using Lagrange.OneBot.Utility;
 using Microsoft.Extensions.Logging;
+using static Lagrange.Core.Message.MessageChain;
 
 namespace Lagrange.OneBot.Core.Notify;
 
-public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger, LagrangeWebSvcCollection service)
+public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger, LagrangeWebSvcCollection service, RealmHelper realm)
 {
     public void RegisterEvents()
     {
@@ -27,7 +29,7 @@ public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger,
         {
             if (@event.Chain.GetEntity<FileEntity>() is { FileUrl: { } url } file)
             {
-                var fileInfo = new OneBotFileInfo(file.FileId ?? "", file.FileName, (ulong)file.FileSize, url);
+                var fileInfo = new OneBotPrivateFileInfo(file.FileUuid ?? "", file.FileName, (ulong)file.FileSize, url, file.FileHash ?? "");
                 await service.SendJsonAsync(new OneBotPrivateFile(bot.BotUin, @event.Chain.FriendUin, fileInfo));
             }
         };
@@ -49,12 +51,28 @@ public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger,
         {
             logger.LogInformation(@event.ToString());
 
-            var requests = await bot.FetchGroupRequests();
-            if (requests?.FirstOrDefault(x => @event.GroupUin == x.GroupUin && @event.InvitorUin == x.InvitorMemberUin) is { } request)
+            ulong? sequence = @event.Sequence;
+            string comment = string.Empty;
+            uint type = 2;
+            if (sequence == null) // received by msg
             {
-                string flag = $"{request.Sequence}-{request.GroupUin}-{(uint)request.EventType}";
-                await service.SendJsonAsync(new OneBotGroupRequest(bot.BotUin, @event.InvitorUin, @event.GroupUin, "invite", request.Comment, flag));
+                var requests = await bot.FetchGroupRequests();
+                if (requests == null) return;
+
+                var request = requests.FirstOrDefault(r =>
+                {
+                    return r.EventType == BotGroupRequest.Type.SelfInvitation
+                        && r.GroupUin == @event.GroupUin
+                        && r.InvitorMemberUin == @event.InvitorUin;
+                });
+                if (request == null) return;
+
+                sequence = request.Sequence;
+                if (request.Comment != null) comment = request.Comment;
             }
+
+            string flag = $"{sequence}-{@event.GroupUin}-{type}";
+            await service.SendJsonAsync(new OneBotGroupRequest(bot.BotUin, @event.InvitorUin, @event.GroupUin, "invite", comment, flag));
         };
 
         bot.Invoker.OnGroupJoinRequestEvent += async (_, @event) =>
@@ -64,7 +82,7 @@ public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger,
             var requests = await bot.FetchGroupRequests();
             if (requests?.FirstOrDefault(x => @event.GroupUin == x.GroupUin && @event.TargetUin == x.TargetMemberUin) is { } request)
             {
-                string flag = $"{request.Sequence}-{request.GroupUin}-{(uint)request.EventType}";
+                string flag = $"{request.Sequence}-{request.GroupUin}-{(uint)request.EventType}-{Convert.ToInt32(request.IsFiltered)}";
                 await service.SendJsonAsync(new OneBotGroupRequest(bot.BotUin, @event.TargetUin, @event.GroupUin, "add", request.Comment, flag));
             }
         };
@@ -114,6 +132,7 @@ public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger,
             string type = @event.Type switch
             {
                 GroupMemberDecreaseEvent.EventType.KickMe => "kick_me",
+                GroupMemberDecreaseEvent.EventType.Disband => "disband",
                 GroupMemberDecreaseEvent.EventType.Leave => "leave",
                 GroupMemberDecreaseEvent.EventType.Kick => "kick",
                 _ => @event.Type.ToString()
@@ -136,17 +155,32 @@ public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger,
                 GroupId = @event.GroupUin,
                 UserId = @event.AuthorUin,
                 MessageId = MessageRecord.CalcMessageHash(@event.Random, @event.Sequence),
-                OperatorId = @event.OperatorUin
+                OperatorId = @event.OperatorUin,
+                Tip = @event.Tip
             });
         };
 
         bot.Invoker.OnFriendRecallEvent += async (_, @event) =>
         {
             logger.LogInformation(@event.ToString());
+
+            var sequence = realm.Do(realm => realm.All<MessageRecord>()
+                .FirstOrDefault(record => record.TypeInt == (int)MessageType.Friend
+                    && record.FromUinLong == @event.FriendUin
+                    && record.ClientSequenceLong == @event.ClientSequence
+                    && record.MessageIdLong == (0x01000000L << 32 | @event.Random)
+                )?
+                .Sequence);
+            if (sequence == null) {
+                logger.LogWarning("Unable to find the {} message sent by {}", @event.ClientSequence, @event.FriendUin);
+                return;
+            }
+
             await service.SendJsonAsync(new OneBotFriendRecall(bot.BotUin)
             {
                 UserId = @event.FriendUin,
-                MessageId = MessageRecord.CalcMessageHash(@event.Random, @event.Sequence),
+                MessageId = MessageRecord.CalcMessageHash(@event.Random, (uint)sequence),
+                Tip = @event.Tip
             });
         };
 
@@ -155,10 +189,92 @@ public sealed class NotifyService(BotContext bot, ILogger<NotifyService> logger,
             logger.LogInformation(@event.ToString());
             await service.SendJsonAsync(new OneBotFriendPoke(bot.BotUin)
             {
-                SenderId = @event.FriendUin,
-                UserId = @event.FriendUin,
-                TargetId = bot.BotUin
+                SenderId = @event.OperatorUin,
+                UserId = @event.OperatorUin,
+                TargetId = @event.TargetUin,
+                Action = @event.Action,
+                Suffix = @event.Suffix,
+                ActionImgUrl = @event.ActionImgUrl
             });
+        };
+
+        bot.Invoker.OnGroupPokeEvent += async (_, @event) =>
+        {
+            logger.LogInformation(@event.ToString());
+            await service.SendJsonAsync(new OneBotGroupPoke(bot.BotUin)
+            {
+                GroupId = @event.GroupUin,
+                UserId = @event.OperatorUin,
+                TargetId = @event.TargetUin,
+                Action = @event.Action,
+                Suffix = @event.Suffix,
+                ActionImgUrl = @event.ActionImgUrl
+            });
+        };
+
+        bot.Invoker.OnGroupEssenceEvent += async (_, @event) =>
+        {
+            logger.LogInformation(@event.ToString());
+            await service.SendJsonAsync(new OneBotGroupEssence(bot.BotUin)
+            {
+                SubType = @event.IsSet ? "add" : "delete",
+                GroupId = @event.GroupUin,
+                SenderId = @event.FromUin,
+                OperatorId = @event.OperatorUin,
+                MessageId = MessageRecord.CalcMessageHash(@event.Random, @event.Sequence),
+            });
+        };
+
+        bot.Invoker.OnGroupReactionEvent += async (bot, @event) =>
+        {
+            logger.LogInformation(@event.ToString());
+
+            var id = realm.Do(realm => realm.All<MessageRecord>()
+                .FirstOrDefault(record => record.TypeInt == (int)MessageType.Group
+                    && record.ToUinLong == @event.TargetGroupUin
+                    && record.SequenceLong == @event.TargetSequence)?
+                .Id);
+
+            if (id == null)
+            {
+                logger.LogInformation(
+                    "Unable to find the corresponding message using GroupUin: {} and Sequence: {}",
+                    @event.TargetGroupUin,
+                    @event.TargetSequence
+                );
+
+                return;
+            }
+
+            await service.SendJsonAsync(new OneBotGroupReaction(
+                bot.BotUin,
+                @event.TargetGroupUin,
+                id.Value,
+                @event.OperatorUin,
+                @event.IsAdd ? "add" : "remove",
+                @event.Code,
+                @event.Count
+            ));
+        };
+
+        bot.Invoker.OnGroupNameChangeEvent += async (bot, @event) =>
+        {
+            logger.LogInformation("{}", @event);
+            await service.SendJsonAsync(new OneBotGroupNameChange(
+                bot.BotUin,
+                @event.GroupUin,
+                @event.Name
+            ));
+        };
+
+        bot.Invoker.OnBotOnlineEvent += async (bot, @event) =>
+        {
+            await service.SendJsonAsync(new OneBotBotOnline(bot.BotUin, @event.Reason));
+        };
+
+        bot.Invoker.OnBotOfflineEvent += async (bot, @event) =>
+        {
+            await service.SendJsonAsync(new OneBotBotOffline(bot.BotUin, @event.Tag, @event.Message));
         };
     }
 }

@@ -1,4 +1,3 @@
-using Lagrange.Core.Internal.Packets.Message.Element.Implementation.Extra;
 using ProtoBuf;
 
 // ReSharper disable InconsistentNaming
@@ -19,7 +18,7 @@ internal class CustomFace
     
     [ProtoMember(5)] public byte[] Flag { get; set; }
     
-    [ProtoMember(6)] public byte[] OldData { get; set; }
+    [ProtoMember(6)] public byte[]? OldData { get; set; }
     
     [ProtoMember(7)] public uint FileId { get; set; }
     
@@ -80,7 +79,7 @@ internal class CustomFace
     [ProtoContract]
     public class PbReserve1
     {
-        [ProtoMember(1)] public int Field1 { get; set; }
+        [ProtoMember(1)] public int SubType { get; set; }
 
         [ProtoMember(3)] public int Field3 { get; set; }
 
